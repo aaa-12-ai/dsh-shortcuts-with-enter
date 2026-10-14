@@ -1,7 +1,7 @@
 {
   "name": "dsh-shortcuts",
-  "version": "1.1.5",
-  "description": "Fully customizable keyboard shortcuts for the DeepSeek Harness WebUI — macOS-first defaults, 34 pre-registered features across session/view/clipboard/model/permission/system groups, one-click recording to add your own bindings, silent permission cycling with color feedback.",
+  "version": "1.1.6",
+  "description": "Customizable DeepSeek Harness WebUI shortcuts with 37 actions, configurable composer keys and durable Host settings.",
   "license": "MIT",
   "author": "ziqian.guo",
   "repository": {
@@ -59,7 +59,8 @@
         "@deepseek-ai/dsh-client-ui-model-selection",
         "@deepseek-ai/dsh-cordis-client-runner",
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-theme"
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-ui-settings"
       ],
       "platform": "web",
       "immediately": true
@@ -104,5 +105,9 @@
     "playwright": "1.58.2",
     "react": "18.3.1",
     "react-dom": "18.3.1"
-  }
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "3.18.2"
+  },
+  "bundledDependencies": ["@deepseek-ai/schemastery"]
 }

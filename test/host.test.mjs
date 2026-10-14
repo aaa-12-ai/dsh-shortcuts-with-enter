@@ -3,9 +3,11 @@ import { apply } from '../lib/index.js';
 
 let requiredServices;
 let mount;
+let settingsMount;
 
 apply({
   inject(services, callback) {
+    if (services[0] === 'settings') { settingsMount = callback; return; }
     requiredServices = services;
     mount = callback;
   },
@@ -13,6 +15,10 @@ apply({
 
 assert.deepEqual(requiredServices, ['webServer', 'permissionPresets', 'sessions', 'connection']);
 assert.equal(typeof mount, 'function', 'host route must be deferred until services exist');
+let registration;
+settingsMount({ settings: { register(namespace, schema) { registration = { namespace, schema }; } } });
+assert.equal(registration.namespace, 'dsh-shortcuts');
+assert.equal(typeof registration.schema.toJSON, 'function');
 
 const session = { id: 'session-1' };
 const presetCalls = [];

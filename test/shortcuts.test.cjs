@@ -169,6 +169,7 @@ const sessionObj = {
   command: (line) => { commandCalls.push(line); return Promise.resolve({ ok: true, value: { matched: true } }); },
 };
 const ctxTarget = {
+  inject() {},
   get(name) {
     if (name === 'slots') return slotsService;
     if (name === 'sessions') return {

@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const code = fs.readFileSync(path.join(__dirname, '../lib/client.js'), 'utf8');
-function boot(preset) {
+function boot(preset, scope) {
   const listeners = new Map();
   const renderers = {};
   let stored;
@@ -31,6 +31,9 @@ function boot(preset) {
   vm.runInNewContext(code, sandbox);
   const disposers = [];
   sandbox.entry.factory(() => React).apply({
+    inject(_, callback) {
+      if (scope) callback({ get: () => ({ bind: () => scope }), effect: (fn) => { const dispose = fn(); if (dispose) disposers.push(dispose); } });
+    },
     get: (key) => key === 'slots' ? {
       inject: (_, fn) => fn(), register: (spec, render) => { renderers[spec.name + ':' + spec.id] = render; return () => {}; },
     } : undefined,
@@ -65,7 +68,7 @@ function boot(preset) {
     return nodes;
   }
   function row(id) { return controls().find(node => node.props['data-shortcut-action'] === id); }
-  return { dispatch, composer, row, controls, stored: () => stored, listeners,
+  return { dispatch, composer, row, controls, toast: () => renderers['shell.overlay:dyn-shortcuts-toast']().type(), stored: () => stored, listeners,
     dispose: () => disposers.reverse().forEach(fn => fn()) };
 }
 
@@ -104,3 +107,49 @@ const reset=legacy.controls().find(n=>n.type==='button'&&n.children.includes('�
 const conflicting=boot(JSON.stringify({actions:{copyLastMessage:{enabled:true,combo:'Control+Enter'}}})); conflicting.row('sendMessage').children[1].children[0].children.find(n=>n.type==='input').props.onChange({target:{checked:false}}); assert.equal(JSON.parse(conflicting.stored()).actions.sendAccelerated.combo,null);
 fresh.dispose(); assert.equal([...fresh.listeners.values()].every(set=>set.size===0),true);
 console.log('Composer action bindings, scope, persistence, migration and keyboard routing tests passed.');
+
+(async () => {
+  const saved = { user: undefined, status: 'ready', writes: [] };
+  function scopeFor() {
+    const listeners = new Set();
+    return {
+      getSnapshot: () => ({ status: saved.status, writable: true, user: saved.user, value: saved.user || { actions: {} } }),
+      subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+      async set(field, actions) {
+        assert.equal(field, 'actions');
+        saved.user = { actions: JSON.parse(JSON.stringify(actions)) };
+        saved.writes.push(saved.user);
+        for (const fn of listeners) fn();
+      },
+      publish() { for (const fn of listeners) fn(); },
+    };
+  }
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+  const local = JSON.stringify({ actions: { sendMessage: { combo: 'Control+S', enabled: true } } });
+  const oldBrowser = boot(local, scopeFor());
+  await flush();
+  assert.equal(saved.writes.length, 1, 'existing localStorage is migrated once');
+  oldBrowser.dispose();
+  const restarted = boot(null, scopeFor());
+  restarted.dispatch(restarted.composer, { key: 's', ctrlKey: true });
+  assert.equal(restarted.composer.hostEvents[0].ctrlKey, false, 'fresh browser restores the saved Host binding');
+  assert.equal(saved.writes.length, 1, 'a fresh browser does not overwrite saved bindings with defaults');
+  const stale = boot(JSON.stringify({ actions: { sendMessage: { combo: 'Enter' } } }), scopeFor());
+  stale.dispatch(stale.composer, { key: 's', ctrlKey: true });
+  assert.equal(stale.composer.hostEvents[0].ctrlKey, false, 'Host configuration wins over a stale browser cache');
+  saved.status = 'loading';
+  const delayedScope = scopeFor();
+  const delayed = boot(null, delayedScope);
+  delayed.row('sendMessage').children[1].children[0].children[0].props.onChange({ target: { checked: false } });
+  saved.status = 'ready'; delayedScope.publish(); await flush();
+  assert.equal(saved.user.actions.sendMessage.enabled, false, 'edits made before Host readiness are saved after loading');
+  const rejectedScope = scopeFor();
+  rejectedScope.set = async () => {};
+  const rejected = boot(null, rejectedScope);
+  rejected.row('sendMessage').children[1].children[0].children[0].props.onChange({ target: { checked: true } });
+  await flush();
+  assert.ok(rejected.toast().children[0].includes('未保存'), 'a recovered but rejected Host write must not silently claim persistence');
+  rejected.dispose();
+  restarted.dispose(); stale.dispose(); delayed.dispose();
+  console.log('Host persistence, browser migration, fresh-browser restart and loading-race tests passed.');
+})().catch(err => { console.error(err); process.exitCode = 1; });
