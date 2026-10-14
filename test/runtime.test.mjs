@@ -165,7 +165,10 @@ try {
   await page.keyboard.press('Meta+,');
   await page.getByText('快捷键', { exact: true }).last().click();
   await page.locator('.dyn-kbd-page').first().waitFor();
-  assert.equal(await page.locator('.dyn-kbd-row').count(), 34);
+  assert.equal(await page.locator('.dyn-kbd-row').count(), 37);
+  for (const id of ['sendMessage', 'sendAccelerated', 'insertNewline']) {
+    assert.equal(await page.locator(`[data-shortcut-action="${id}"] .dyn-kbd-key`).count() > 0, true);
+  }
   await page.screenshot({ path: join(evidenceDir, 'settings.png') });
   await page.keyboard.press('Escape');
   await page.keyboard.press('Meta+Shift+l');

@@ -38,7 +38,7 @@
     "docs/compatibility.md"
   ],
   "scripts": {
-    "test": "node test/shortcuts.test.cjs && node test/host.test.mjs && bash test/install.test.sh",
+    "test": "node test/shortcuts.test.cjs && node test/composer.test.cjs && node test/host.test.mjs && bash test/install.test.sh",
     "check": "node --check lib/client.js && node --check lib/index.js && npm test",
     "test:runtime": "node test/runtime.test.mjs"
   },
